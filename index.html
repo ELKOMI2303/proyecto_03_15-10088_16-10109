@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Partículas</title>
+    <link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+    <div id="main-menu" class="expanded">
+        <div class="header container">
+            <h1 class="gallery-title">Sistema de Partículas</h1>
+            <div class="divider"></div>
+        </div>
+        <div id="button-container">
+            <button class="start-btn" data-option="particles">Sistema de Partículas</button>
+        </div>
+    </div>
+    
+    <div id="controls-panel" class="collapsed">
+        <button id="back-btn" class="back-btn">← Volver al menú</button>
+        <h2 id="current-selection"></h2>
+    </div>
+    
+    <div id="app-container"></div>
+    <script type="module" src="src/main.ts"></script>
+</body>
+</html>
