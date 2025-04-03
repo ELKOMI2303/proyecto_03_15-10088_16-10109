@@ -54,7 +54,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         
         import("./app").then(module => {
-            currentApp = new module.ParticleSystem();
+            currentApp = new module.NightVision();
             currentApp.init();
         });
     }

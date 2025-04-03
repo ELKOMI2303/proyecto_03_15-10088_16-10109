@@ -1,29 +1,21 @@
 import * as THREE from 'three';
 import GUI from 'lil-gui';
-import particleVertexShader from './shaders/particleVertexShader.glsl';
-import particleFragmentShader from './shaders/particleFragmentShader.glsl';
+import nightVisionVertexShader from './shaders/nightVisionVertexShader.glsl';
+import nightVisionFragmentShader from './shaders/nightVisionFragmentShader.glsl';
 
-const textureLoader = new THREE.TextureLoader();
-const particleTexture = textureLoader.load(
-    './textures/humo.png',
-    () => console.log('Textura cargada correctamente'),
-    undefined,
-    (error) => console.error('Error al cargar la textura:', error)
-);
-
-export class ParticleSystem {
+export class NightVision {
     private scene: THREE.Scene;
     private camera: THREE.PerspectiveCamera;
     private renderer: THREE.WebGLRenderer;
-    private particleSystem!: THREE.Points;
-    private particleMaterial!: THREE.RawShaderMaterial;
+    private material!: THREE.RawShaderMaterial;
+    private standardMaterial!: THREE.MeshPhongMaterial;
     private startTime: number;
     private gui!: GUI;
-    private params: { amplitud: number; frecuencia: number; fase: number; behavior: number, velocidad: number };
-
-    // Inicialización de parámetros
-   
+    private params: { noiseIntensity: number; contrast: number };
+    private sphere!: THREE.Mesh;
+    private nightVisionActive: boolean = false;
     
+
     constructor() {
         this.scene = new THREE.Scene();
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -33,25 +25,13 @@ export class ParticleSystem {
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setAnimationLoop(() => this.animate());
         this.renderer.setPixelRatio(window.devicePixelRatio);
-        // this.renderer.setClearColor(new THREE.Color(0.5, 0.5, 0.5)); // Fondo gris claro
+        this.renderer.setClearColor(new THREE.Color(0, 0, 0)); // 🔴 Inicialmente negro, sin efecto nocturno
 
-         
-        const container = document.getElementById('app-container');
-        if (container) {
-            container.appendChild(this.renderer.domElement);
-        } else {
-            document.body.appendChild(this.renderer.domElement);
-        }
+        document.body.appendChild(this.renderer.domElement);
 
         this.startTime = Date.now();
-        this.params = { amplitud: 0.5, frecuencia: 1.0, fase: 1.5, behavior: 0, velocidad: 1.0 };
+        this.params = { noiseIntensity: 0.5, contrast: 1.2 };
 
-        if (this.params.behavior === 0) {
-            this.renderer.setClearColor(new THREE.Color(0.5, 0.5, 0.5)); // Fondo gris
-        } else {
-            this.renderer.setClearColor(new THREE.Color(0, 0, 0)); // Fondo negro
-        }
-        
         window.addEventListener('resize', () => this.onResize());
         window.addEventListener('keydown', (event) => this.onKeyDown(event));
         window.addEventListener('wheel', (event) => this.onZoom(event));
@@ -59,114 +39,63 @@ export class ParticleSystem {
         this.init();
     }
 
-    public destroy(): void {
-        this.gui.destroy();
-        this.renderer.dispose();
-        window.removeEventListener('resize', this.onResize);
-        window.removeEventListener('keydown', this.onKeyDown);
-        window.removeEventListener('wheel', this.onZoom);
-    }
-
     private init(): void {
-        this.createParticleSystem();
+        this.createShaderEffect();
+        this.createSphereObject();
         this.setupGUI();
     }
 
-    private createParticleSystem(): void {
-        const particleCount = 5000;
-        const positions = new Float32Array(particleCount * 3);
-        const colors = new Float32Array(particleCount * 3);
-        const sizes = new Float32Array(particleCount);
+    private createShaderEffect(): void {
+        const geometry = new THREE.PlaneGeometry(2, 2);
 
-        for (let i = 0; i < particleCount; i++) {
-            positions[i * 3] = (Math.random() * 2 - 1) * 50;
-            positions[i * 3 + 1] = (Math.random() * 2 - 1) * 50;
-            positions[i * 3 + 2] = (Math.random() * 2 - 1) * 50;
-
-            colors[i * 3] = Math.random();
-            colors[i * 3 + 1] = Math.random();
-            colors[i * 3 + 2] = Math.random();
-
-            sizes[i] = 20;
-        }
-
-        const particles = new THREE.BufferGeometry();
-        particles.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        particles.setAttribute('customColor', new THREE.BufferAttribute(colors, 3));
-        particles.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-
-        this.particleMaterial = new THREE.RawShaderMaterial({
-            vertexShader: particleVertexShader,
-            fragmentShader: particleFragmentShader,
-            uniforms: { 
+        this.material = new THREE.RawShaderMaterial({
+            vertexShader: nightVisionVertexShader,
+            fragmentShader: nightVisionFragmentShader,
+            uniforms: {
                 time: { value: 0.0 },
-                amplitud: { value: this.params.amplitud },
-                frecuencia: { value: this.params.frecuencia },
-                fase: { value: this.params.fase },
-                behavior: { value: this.params.behavior },
-                velocidad: { value: this.params.velocidad },
-                texturejpg: { value: particleTexture }, // Uniforme para la textura
-                modelViewMatrix: { value: new THREE.Matrix4() },
-                projectionMatrix: { value: new THREE.Matrix4() }
+                noiseIntensity: { value: this.params.noiseIntensity },
+                contrast: { value: this.params.contrast },
+                nightVisionActive: { value: 0.0 } // 🔴 Nuevo uniforme: efecto desactivado al inicio
             },
             glslVersion: THREE.GLSL3,
-            transparent: true,
-            blending: THREE.NormalBlending, // Activa el blending aditivo
+            transparent: true
         });
-        
-        
 
-        this.particleSystem = new THREE.Points(particles, this.particleMaterial);
-        this.scene.add(this.particleSystem);
+        const mesh = new THREE.Mesh(geometry, this.material);
+        this.scene.add(mesh);
+    }
+    private createSphereObject(): void {
+        const geometry = new THREE.SphereGeometry(1, 32, 32);
+    
+        // 🔴 Material inicial oscuro para que destaque con la visión nocturna
+        this.standardMaterial = new THREE.MeshPhongMaterial({ color: 0x222222 });
+    
+        this.sphere = new THREE.Mesh(geometry, this.standardMaterial);
+        this.sphere.position.z = -3;
+    
+        // 🔴 Ajuste de iluminación
+        const light = new THREE.PointLight(0xffffff, 0.5); // 🔧 Reduce intensidad de luz
+        light.position.set(2, 2, 5); // 🔧 Mueve la luz para dar efecto más natural
+        this.scene.add(light);
+    
+        this.scene.add(this.sphere);
     }
 
     private setupGUI(): void {
-        if (this.gui) this.gui.destroy();
         this.gui = new GUI();
-        this.gui.add(this.params, 'amplitud', 0, 1).name('Amplitud').onChange((value: number) => this.particleMaterial.uniforms.amplitud.value = value);
-        this.gui.add(this.params, 'frecuencia', 0, 1).name('Frecuencia').onChange((value: number) => this.particleMaterial.uniforms.frecuencia.value = value);
-        this.gui.add(this.params, 'fase', 0, 1).name('Fase').onChange((value: number) => this.particleMaterial.uniforms.fase.value = value);
-        this.gui.add(this.params, 'velocidad', 0.1, 10.0).name('Velocidad').onChange((value: number) => this.particleMaterial.uniforms.velocidad.value = value);
-        this.gui.add(this.params, 'behavior', { Humo: 0, Gravedad: 1, Estelas: 2 }).name('Comportamiento').onChange((value: number) => {
-            this.particleMaterial.uniforms.behavior.value = value
-
-            // Cambia el color del fondo según el comportamiento
-            if (value === 0) {
-                this.renderer.setClearColor(new THREE.Color(0.5, 0.5, 0.5)); // Fondo gris para "Humo"
-            } else {
-                this.renderer.setClearColor(new THREE.Color(0, 0, 0)); // Fondo negro para "Gravedad" y "Estelas"
-            }
+        this.gui.add(this.params, 'noiseIntensity', 0.0, 1.0).name('Intensidad de Ruido').onChange((value: number) => {
+            this.material.uniforms.noiseIntensity.value = value;
         });
-        this.gui.add(this.particleMaterial, 'blending', {
-            Normal: THREE.NormalBlending,
-            Additive: THREE.AdditiveBlending,
-            Subtractive: THREE.SubtractiveBlending
-        }).name('Blending').onChange((value: THREE.Blending) => {
-            this.particleMaterial.blending = value;
-            this.particleMaterial.needsUpdate = true; // Asegura que los cambios se reflejen
-        });   
+        this.gui.add(this.params, 'contrast', 0.5, 2.0).name('Contraste').onChange((value: number) => {
+            this.material.uniforms.contrast.value = value;
+        });
     }
-    
 
-    private lastFrameTime = 0;
-    private frameInterval = 1000 / 60; // 60 FPS
-    
     private animate(): void {
-        const currentTime = Date.now();
-        const deltaTime = currentTime - this.lastFrameTime;
-    
-        if (deltaTime >= this.frameInterval) {
-            this.lastFrameTime = currentTime;
-    
-            const delta = (currentTime - this.startTime) / 1000;
-            this.particleMaterial.uniforms.time.value = delta;
-            this.particleMaterial.uniforms.modelViewMatrix.value = this.camera.matrixWorldInverse;
-            this.particleMaterial.uniforms.projectionMatrix.value = this.camera.projectionMatrix;
-    
-            this.renderer.render(this.scene, this.camera);
-        }
+        const delta = (Date.now() - this.startTime) / 1000;
+        this.material.uniforms.time.value = delta;
+        this.renderer.render(this.scene, this.camera);
     }
-    
 
     private onResize(): void {
         this.camera.aspect = window.innerWidth / window.innerHeight;
@@ -181,20 +110,21 @@ export class ParticleSystem {
             this.gui.destroy();
             window.location.reload();
         }
-        // } else if (event.key === '1') {
-        //     this.params.behavior = 0;
-        //     this.particleMaterial.uniforms.behavior.value = 0;
 
-        // } else if (event.key === '2') {
-        //     this.params.behavior = 1;
-        //     this.particleMaterial.uniforms.behavior.value = 1;
-        // } else if (event.key === '3') {
-        //     this.params.behavior = 2;
-        //     this.particleMaterial.uniforms.behavior.value = 2;
-        // }
+        // 🔴 Alternar visión nocturna con la tecla "1"
+        if (event.key === '1') {
+            this.toggleNightVision();
+        }
     }
 
     private onZoom(event: WheelEvent): void {
         this.camera.position.z += event.deltaY * 0.01;
+    }
+
+    private toggleNightVision(): void {
+        this.nightVisionActive = !this.nightVisionActive;
+        this.sphere.material = this.nightVisionActive ? this.material : this.standardMaterial;
+        this.material.uniforms.nightVisionActive.value = this.nightVisionActive ? 1.0 : 0.0; // 🔴 Alterna el efecto
+        this.renderer.setClearColor(this.nightVisionActive ? new THREE.Color(0, 0.2, 0) : new THREE.Color(0, 0, 0)); // 🔴 Ajusta el fondo
     }
 }
