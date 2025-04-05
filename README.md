@@ -1,10 +1,10 @@
-# Proyecto Lab 02
+# Proyecto Lab 03
 
 **Curso:** CI5321 (2025)  
-**Puntuación Total:** 25 puntos  
+**Puntuación Total:** 20 puntos  
 **Alumnos:** Felix Arnos y Jonathan Bautista  
 **Carnets:** 15-10088 y 16-10109  
-**Fecha:** 2025-03-16
+**Fecha:** 2025-04-05
 
 ## Sistema Operativo
 
@@ -90,30 +90,27 @@ Abre tu navegador y visita la dirección local que aparece en la terminal (por d
 
 ## Descripción de la Tarea
 
-El objetivo de este proyecto es desarrollar un programa de manera **individual** o **en pareja** sobre Shaders y Materiales.
+El objetivo de este laboratorio es implementar efectos visuales de post-processing utilizando (vertex y) fragment shaders, asegurando la manipulación en tiempo real de los parámetros indicados.
 
 ## Evaluación
 
-1. **Para cada efecto (7 pts cada uno, total 21 pts):**
+1. **Funcionamiento correcto (10 pts)**
 
-   - 1 pt Por parámetro (máximo 3 pts).
-   - 2 pts Funcionamiento correcto.
-   - 1 pt Complejidad.
-   - 1 pt Uso adecuado de vertex y fragment shaders.
-
-2. **Para el sistema completo (4 pts):**
-   - 2 pts Optimización y eficiencia.
-   - 2 pt Organización del código y uso de estructuras reutilizables.
+2. **Defensa (10 pts):**
+   - 1 pt - Explicar el efecto implementado y su elección.
+   - 4 pts - Explicar la teoría detrás del efecto.
+   - 4 pts - Descripción de la implementación y relación con la teoría.
+   - 1 pt - Dificultades y qué mejorarían.
 
 ## Consideraciones
 
-- **Fecha tope de entrega:** Domingo 16 de Marzo de 2025, 11:59 pm.
-- **Formato del repositorio GitHub:** `proyecto_02_CARNET.git`
+- **Fecha tope de entrega:** Sábado 5 de abril de 2025, 09:00 am.
+- **Formato del repositorio GitHub:** `proyecto_03_CARNET.git`
 - **Modalidad:** individual o en parejas.
 - **Envío por correo electrónico a:**
   - <10-87970@usb.ve>
   - Con copia a: <depci-invitado2@usb.ve>
-- **Asunto del correo:** `[ci5321] Proyecto Lab 02`
+- **Asunto del correo:** `[ci5321] Proyecto Lab 03`
 - **Contenido del correo:**
   - Saludo con los **nombres** y **carnets** del equipo.
   - Enlace al **repositorio GitHub**.

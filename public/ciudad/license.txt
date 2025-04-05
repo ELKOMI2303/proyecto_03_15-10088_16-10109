@@ -1,0 +1,11 @@
+Model Information:
+* title:	Ship Race: City Above The Mountains
+* source:	https://sketchfab.com/3d-models/ship-race-city-above-the-mountains-3a3cd96123194c1fb48535f016537880
+* author:	David Onizaki (https://sketchfab.com/donizaki)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Ship Race: City Above The Mountains" (https://sketchfab.com/3d-models/ship-race-city-above-the-mountains-3a3cd96123194c1fb48535f016537880) by David Onizaki (https://sketchfab.com/donizaki) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
