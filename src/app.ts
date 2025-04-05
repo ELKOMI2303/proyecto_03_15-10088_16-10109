@@ -158,12 +158,7 @@ export class NightVision {
             mesh.castShadow = true;
             mesh.receiveShadow = true;
 
-            // Material inicial para modo normal
-            mesh.material = new THREE.MeshPhongMaterial({
-              color: 0x888888,
-              shininess: 5, // Relieve reducido
-              specular: 0x222222,
-            });
+            // Conservar el material original del modelo
             mesh.userData.originalMaterial = mesh.material;
           }
         });
@@ -285,11 +280,11 @@ export class NightVision {
       if ((object as THREE.Mesh).isMesh) {
         const mesh = object as THREE.Mesh;
         if (this.nightVisionActive) {
-          mesh.material = this.material;
+          // Incrementar la intensidad de las luces en visión nocturna
+          mesh.material = mesh.userData.originalMaterial;
         } else {
-          mesh.material =
-            mesh.userData.originalMaterial ||
-            new THREE.MeshPhongMaterial({ color: 0x111111 });
+          // Restaurar el material original en modo normal
+          mesh.material = mesh.userData.originalMaterial;
         }
       }
     });
@@ -302,6 +297,10 @@ export class NightVision {
       this.nightVisionActive
         ? new THREE.Color(0, 0.2, 0)
         : new THREE.Color(0, 0, 0)
+    );
+
+    console.log(
+      `Night Vision ${this.nightVisionActive ? "Activado" : "Desactivado"}`
     );
   }
 }
