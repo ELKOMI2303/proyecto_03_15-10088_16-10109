@@ -52,10 +52,12 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!document.body.contains(container)) {
             document.body.appendChild(container);
         }
-        
+        console.log('Loading app with option:', _option); // 🔴 Log para depuración
         import("./app").then(module => {
             currentApp = new module.NightVision();
             currentApp.init();
+        }).catch(error => {
+            console.error('Error loading app module:', error); // 🔴 Log de error
         });
     }
   
