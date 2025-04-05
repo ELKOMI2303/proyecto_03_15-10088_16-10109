@@ -167,29 +167,36 @@ export class NightVision {
   }
 
   private animate(): void {
-    const delta = (Date.now() - this.startTime) / 1000;
-    this.material.uniforms.time.value = delta;
-
-    // Actualizar la posición de la cámara en el shader
-    this.material.uniforms.cameraPosition.value.copy(this.camera.position);
-
-    if (this.nightVisionActive) {
-      // Renderizar todo el modelo en visión nocturna
-      this.material.uniforms.nightVisionActive.value = 1.0;
-      this.renderer.setRenderTarget(this.renderTarget);
-      this.renderer.render(this.scene, this.camera);
-      this.renderer.setRenderTarget(null);
-
-      this.material.uniforms.tDiffuse.value = this.renderTarget.texture;
-      this.renderer.render(this.screenScene, this.screenCamera);
-    } else {
-      // Aplicar el radio de visión solo en modo normal
-      this.material.uniforms.nightVisionActive.value = 0.0;
-      this.renderer.render(this.scene, this.camera);
+    const now = Date.now();
+    const elapsed = now - this.startTime;
+  
+    if (elapsed >= 1000 / 30) { // 1000 ms / 30 FPS
+      this.startTime = now;
+  
+      const delta = elapsed / 1000;
+      this.material.uniforms.time.value = delta;
+  
+      this.material.uniforms.cameraPosition.value.copy(this.camera.position);
+  
+      if (this.nightVisionActive) {
+        this.material.uniforms.nightVisionActive.value = 1.0;
+        this.renderer.setRenderTarget(this.renderTarget);
+        this.renderer.render(this.scene, this.camera);
+        this.renderer.setRenderTarget(null);
+  
+        this.material.uniforms.tDiffuse.value = this.renderTarget.texture;
+        this.renderer.render(this.screenScene, this.screenCamera);
+      } else {
+        this.material.uniforms.nightVisionActive.value = 0.0;
+        this.renderer.render(this.scene, this.camera);
+      }
+  
+      this.controls.update();
     }
-
-    this.controls.update();
+  
+    requestAnimationFrame(() => this.animate());
   }
+  
 
   private onResize(): void {
     this.camera.aspect = window.innerWidth / window.innerHeight;
