@@ -11,11 +11,9 @@ export class NightVision {
   private camera: THREE.PerspectiveCamera;
   private renderer: THREE.WebGLRenderer;
   private material!: THREE.RawShaderMaterial;
-  private standardMaterial!: THREE.MeshPhongMaterial;
   private startTime: number;
   private gui!: GUI;
   private params: { noiseIntensity: number; contrast: number };
-  private sphere!: THREE.Mesh;
   private nightVisionActive: boolean = false;
   private renderTarget!: THREE.WebGLRenderTarget;
   private screenScene!: THREE.Scene;
@@ -108,38 +106,6 @@ export class NightVision {
 
     this.loadCityModel();
     this.setupGUI();
-  }
-
-  private createShaderEffect(): void {
-    const geometry = new THREE.PlaneGeometry(2, 2);
-
-    this.material = new THREE.RawShaderMaterial({
-      vertexShader: nightVisionVertexShader,
-      fragmentShader: nightVisionFragmentShader,
-      uniforms: {
-        tDiffuse: { value: null },
-        time: { value: 0.0 },
-        noiseIntensity: { value: this.params.noiseIntensity },
-        contrast: { value: this.params.contrast },
-        nightVisionActive: { value: 0.0 },
-      },
-      glslVersion: THREE.GLSL3,
-      transparent: true,
-    });
-  }
-
-  private createSphereObject(): void {
-    const geometry = new THREE.SphereGeometry(1, 32, 32);
-    this.standardMaterial = new THREE.MeshPhongMaterial({ color: 0x222222 });
-
-    this.sphere = new THREE.Mesh(geometry, this.standardMaterial);
-    this.sphere.position.z = -3;
-
-    const light = new THREE.PointLight(0xffffff, 0.5);
-    light.position.set(2, 2, 5);
-    this.scene.add(light);
-
-    this.scene.add(this.sphere);
   }
 
   private loadCityModel(): void {
@@ -268,39 +234,5 @@ export class NightVision {
 
   private onZoom(event: WheelEvent): void {
     this.camera.position.z += event.deltaY * 0.01;
-  }
-
-  private toggleNightVision(): void {
-    this.nightVisionActive = !this.nightVisionActive;
-
-    // Ajustar la intensidad de la luz ambiental
-    this.ambientLight.intensity = this.nightVisionActive ? 0.5 : 0.1;
-
-    this.scene.traverse((object) => {
-      if ((object as THREE.Mesh).isMesh) {
-        const mesh = object as THREE.Mesh;
-        if (this.nightVisionActive) {
-          // Incrementar la intensidad de las luces en visión nocturna
-          mesh.material = mesh.userData.originalMaterial;
-        } else {
-          // Restaurar el material original en modo normal
-          mesh.material = mesh.userData.originalMaterial;
-        }
-      }
-    });
-
-    this.material.uniforms.nightVisionActive.value = this.nightVisionActive
-      ? 1.0
-      : 0.0;
-
-    this.renderer.setClearColor(
-      this.nightVisionActive
-        ? new THREE.Color(0, 0.2, 0)
-        : new THREE.Color(0, 0, 0)
-    );
-
-    console.log(
-      `Night Vision ${this.nightVisionActive ? "Activado" : "Desactivado"}`
-    );
   }
 }
