@@ -4,6 +4,7 @@ import nightVisionVertexShader from "./shaders/nightVisionVertexShader.glsl";
 import nightVisionFragmentShader from "./shaders/nightVisionFragmentShader.glsl";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 export class NightVision {
   private scene: THREE.Scene;
@@ -16,11 +17,12 @@ export class NightVision {
   private params: { noiseIntensity: number; contrast: number };
   private sphere!: THREE.Mesh;
   private nightVisionActive: boolean = false;
-  // Variables nuevas
   private renderTarget!: THREE.WebGLRenderTarget;
   private screenScene!: THREE.Scene;
   private screenCamera!: THREE.OrthographicCamera;
   private screenMesh!: THREE.Mesh;
+  private controls!: OrbitControls;
+  private ambientLight!: THREE.AmbientLight; // Referencia a la luz ambiental
 
   constructor() {
     this.scene = new THREE.Scene();
@@ -39,7 +41,7 @@ export class NightVision {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setAnimationLoop(() => this.animate());
     this.renderer.setPixelRatio(window.devicePixelRatio);
-    this.renderer.setClearColor(new THREE.Color(0, 0, 0)); // 🔴 Inicialmente negro, sin efecto nocturno
+    this.renderer.setClearColor(new THREE.Color(0, 0, 0));
 
     const container = document.getElementById("app-container");
     if (container) {
@@ -75,7 +77,6 @@ export class NightVision {
     this.renderTarget.texture.minFilter = THREE.LinearFilter;
     this.renderTarget.texture.magFilter = THREE.LinearFilter;
 
-    // Cámara ortográfica para pantalla completa
     this.screenCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
     this.screenScene = new THREE.Scene();
 
@@ -83,11 +84,13 @@ export class NightVision {
       vertexShader: nightVisionVertexShader,
       fragmentShader: nightVisionFragmentShader,
       uniforms: {
-        tDiffuse: { value: null }, // 🔴 la textura renderizada de la escena
+        tDiffuse: { value: null },
         time: { value: 0.0 },
         noiseIntensity: { value: this.params.noiseIntensity },
         contrast: { value: this.params.contrast },
         nightVisionActive: { value: 1.0 },
+        cameraPosition: { value: new THREE.Vector3() }, // Posición de la cámara
+        visionRadius: { value: 10.0 }, // Radio de visión en modo normal
       },
       glslVersion: THREE.GLSL3,
     });
@@ -96,9 +99,14 @@ export class NightVision {
     this.screenMesh = new THREE.Mesh(quad, this.material);
     this.screenScene.add(this.screenMesh);
 
-    this.createShaderEffect();
-    this.createSphereObject();
-    this.loadCityModel(); // ← aquí cargas la ciudad
+    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.05;
+    this.controls.screenSpacePanning = false;
+    this.controls.minDistance = 1;
+    this.controls.maxDistance = 50;
+
+    this.loadCityModel();
     this.setupGUI();
   }
 
@@ -113,27 +121,22 @@ export class NightVision {
         time: { value: 0.0 },
         noiseIntensity: { value: this.params.noiseIntensity },
         contrast: { value: this.params.contrast },
-        nightVisionActive: { value: 0.0 }, // 🔴 Nuevo uniforme: efecto desactivado al inicio
+        nightVisionActive: { value: 0.0 },
       },
       glslVersion: THREE.GLSL3,
       transparent: true,
     });
-
-    // const mesh = new THREE.Mesh(geometry, this.material);
-    // this.scene.add(mesh);
   }
+
   private createSphereObject(): void {
     const geometry = new THREE.SphereGeometry(1, 32, 32);
-
-    // 🔴 Material inicial oscuro para que destaque con la visión nocturna
     this.standardMaterial = new THREE.MeshPhongMaterial({ color: 0x222222 });
 
     this.sphere = new THREE.Mesh(geometry, this.standardMaterial);
     this.sphere.position.z = -3;
 
-    // 🔴 Ajuste de iluminación
-    const light = new THREE.PointLight(0xffffff, 0.5); // 🔧 Reduce intensidad de luz
-    light.position.set(2, 2, 5); // 🔧 Mueve la luz para dar efecto más natural
+    const light = new THREE.PointLight(0xffffff, 0.5);
+    light.position.set(2, 2, 5);
     this.scene.add(light);
 
     this.scene.add(this.sphere);
@@ -144,10 +147,10 @@ export class NightVision {
     loader.load(
       "/ciudad/scene.gltf",
       (gltf: GLTF) => {
-        console.log("City model loaded:", gltf); // 🔴 Log para depuración
+        console.log("City model loaded:", gltf);
         const city: THREE.Group = gltf.scene;
-        city.scale.set(0.5, 0.5, 0.5); // Adjust size
-        city.position.set(0, -1.5, -5); // Position visible from the camera
+        city.scale.set(0.5, 0.5, 0.5);
+        city.position.set(0, -1.5, -5);
 
         city.traverse((child: THREE.Object3D) => {
           if ((child as THREE.Mesh).isMesh) {
@@ -155,18 +158,26 @@ export class NightVision {
             mesh.castShadow = true;
             mesh.receiveShadow = true;
 
-            // Apply a dimmed material when night vision is inactive
-            mesh.material = new THREE.MeshPhongMaterial({ color: 0x111111 });
-            mesh.userData.originalMaterial = mesh.material; // Store original material
+            // Material inicial para modo normal
+            mesh.material = new THREE.MeshPhongMaterial({
+              color: 0x888888,
+              shininess: 5, // Relieve reducido
+              specular: 0x222222,
+            });
+            mesh.userData.originalMaterial = mesh.material;
           }
         });
 
-        const light = new THREE.PointLight(0xffffff, 1);
-        light.position.set(5, 5, 5);
-        this.scene.add(light);
+        const moonLight = new THREE.DirectionalLight(0xaabbff, 0.8);
+        moonLight.position.set(5, 10, -5);
+        moonLight.castShadow = true;
+        moonLight.shadow.mapSize.width = 1024;
+        moonLight.shadow.mapSize.height = 1024;
+        this.scene.add(moonLight);
 
-        const ambient = new THREE.AmbientLight(0xffffff, 0.1); // luz baja
-        this.scene.add(ambient);
+        // Crear luz ambiental con intensidad inicial baja
+        this.ambientLight = new THREE.AmbientLight(0x8899aa, 0.1); // Intensidad baja
+        this.scene.add(this.ambientLight);
 
         this.scene.add(city);
       },
@@ -194,85 +205,38 @@ export class NightVision {
       });
   }
 
-  // private animate(): void {
-  //     const delta = (Date.now() - this.startTime) / 1000;
-  //     this.material.uniforms.time.value = delta;
-  //     this.renderer.render(this.scene, this.camera);
-  // }
-
-//   private animate(): void {
-//     const delta = (Date.now() - this.startTime) / 1000;
-//     this.material.uniforms.time.value = delta;
-  
-//     // 1. Renderiza la escena al render target (como textura)
-//     this.renderer.setRenderTarget(this.renderTarget);
-//     this.renderer.render(this.scene, this.camera);
-//     this.renderer.setRenderTarget(null);
-  
-//     // 2. Pasa la textura al shader de pantalla
-//     this.material.uniforms.tDiffuse.value = this.renderTarget.texture;
-  
-//     // 3. Renderiza el quad de pantalla con el shader aplicado
-//     this.renderer.render(this.screenScene, this.screenCamera);
-//   }
-
-//   private animate(): void {
-//     const delta = (Date.now() - this.startTime) / 1000;
-//     this.material.uniforms.time.value = delta;
-  
-//     // 1. Renderiza la escena al renderTarget
-//     this.renderer.setRenderTarget(this.renderTarget);
-//     this.renderer.clear(); // Limpia antes de renderizar
-//     this.renderer.render(this.scene, this.camera);
-//     this.renderer.setRenderTarget(null);
-  
-//     // 2. Pasa la textura al shader de pantalla
-//     this.material.uniforms.tDiffuse.value = this.renderTarget.texture;
-  
-//     // 3. Renderiza el quad a pantalla completa
-//     this.renderer.render(this.screenScene, this.screenCamera);
-//   }
-
-  // 👇 al final del archivo app.ts
-
-private animate(): void {
+  private animate(): void {
     const delta = (Date.now() - this.startTime) / 1000;
     this.material.uniforms.time.value = delta;
-  
+
+    // Actualizar la posición de la cámara en el shader
+    this.material.uniforms.cameraPosition.value.copy(this.camera.position);
+
     if (this.nightVisionActive) {
-      // 1. Renderiza la escena al renderTarget (no se muestra aún)
+      // Renderizar todo el modelo en visión nocturna
+      this.material.uniforms.nightVisionActive.value = 1.0;
       this.renderer.setRenderTarget(this.renderTarget);
       this.renderer.render(this.scene, this.camera);
-      this.renderer.setRenderTarget(null); // volver al frame buffer por defecto
-  
-      // 2. Pasa la textura al shader de pantalla
+      this.renderer.setRenderTarget(null);
+
       this.material.uniforms.tDiffuse.value = this.renderTarget.texture;
-      this.material.uniforms.nightVisionActive.value = 1.0;
-  
-      // 3. Renderiza la pantalla completa con efecto
       this.renderer.render(this.screenScene, this.screenCamera);
     } else {
+      // Aplicar el radio de visión solo en modo normal
       this.material.uniforms.nightVisionActive.value = 0.0;
-      this.renderer.render(this.scene, this.camera); // render normal
+      this.renderer.render(this.scene, this.camera);
     }
+
+    this.controls.update();
   }
-  
+
   private onResize(): void {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-  
+
     this.renderTarget.setSize(window.innerWidth, window.innerHeight);
   }
-  
-  
-  
-
-//   private onResize(): void {
-//     this.camera.aspect = window.innerWidth / window.innerHeight;
-//     this.camera.updateProjectionMatrix();
-//     this.renderer.setSize(window.innerWidth, window.innerHeight);
-//   }
 
   private onKeyDown(event: KeyboardEvent): void {
     if (event.key === "Escape") {
@@ -282,16 +246,29 @@ private animate(): void {
       window.location.reload();
     }
 
-    // 🔴 Alternar visión nocturna con la tecla "1"
     if (event.key === "1") {
-      this.toggleNightVision();
+      // Ajustar la intensidad de la luz ambiental
+      this.ambientLight.intensity = this.nightVisionActive ? 0.5 : 0.1;
+      this.nightVisionActive = !this.nightVisionActive;
+      this.material.uniforms.nightVisionActive.value = this.nightVisionActive
+        ? 1.0
+        : 0.0;
+      console.log(
+        `Night Vision ${this.nightVisionActive ? "Activado" : "Desactivado"}`
+      );
     }
 
     if (event.key === "n" || event.key === "N") {
-        this.nightVisionActive = !this.nightVisionActive;
-        this.material.uniforms.nightVisionActive.value = this.nightVisionActive ? 1.0 : 0.0;
-        console.log(`Night Vision ${this.nightVisionActive ? "Activado" : "Desactivado"}`);
-      }
+      // Ajustar la intensidad de la luz ambiental
+      this.ambientLight.intensity = this.nightVisionActive ? 0.5 : 0.1;
+      this.nightVisionActive = !this.nightVisionActive;
+      this.material.uniforms.nightVisionActive.value = this.nightVisionActive
+        ? 1.0
+        : 0.0;
+      console.log(
+        `Night Vision ${this.nightVisionActive ? "Activado" : "Desactivado"}`
+      );
+    }
   }
 
   private onZoom(event: WheelEvent): void {
@@ -301,15 +278,15 @@ private animate(): void {
   private toggleNightVision(): void {
     this.nightVisionActive = !this.nightVisionActive;
 
-    // Traverse all objects in the scene and update materials
+    // Ajustar la intensidad de la luz ambiental
+    this.ambientLight.intensity = this.nightVisionActive ? 0.5 : 0.1;
+
     this.scene.traverse((object) => {
       if ((object as THREE.Mesh).isMesh) {
         const mesh = object as THREE.Mesh;
         if (this.nightVisionActive) {
-          // Apply night vision shader material
           mesh.material = this.material;
         } else {
-          // Restore original material
           mesh.material =
             mesh.userData.originalMaterial ||
             new THREE.MeshPhongMaterial({ color: 0x111111 });
@@ -317,7 +294,9 @@ private animate(): void {
       }
     });
 
-    this.material.uniforms.nightVisionActive.value = this.nightVisionActive ? 1.0 : 0.0;
+    this.material.uniforms.nightVisionActive.value = this.nightVisionActive
+      ? 1.0
+      : 0.0;
 
     this.renderer.setClearColor(
       this.nightVisionActive
