@@ -170,7 +170,7 @@ export class NightVision {
     const now = Date.now();
     const elapsed = now - this.startTime;
   
-    if (elapsed >= 1000 / 30) { // 1000 ms / 30 FPS
+    if (elapsed >= 1000 / 30) { // 1000 ms / 60 FPS
       this.startTime = now;
   
       const delta = elapsed / 1000;
